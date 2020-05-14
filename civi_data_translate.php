@@ -13,6 +13,9 @@ use CRM_CiviDataTranslate_ExtensionUtil as E;
  */
 function civi_data_translate_civicrm_config(&$config) {
   _civi_data_translate_civix_civicrm_config($config);
+  $dispatcher = Civi::dispatcher();
+  $dispatcher->addListener('civi.token.list', ['CRM_CiviDataTranslate_Tokens', 'onListTokens']);
+  $dispatcher->addListener('civi.token.eval', ['CRM_CiviDataTranslate_Tokens', 'onEvalTokens']);
 }
 
 /**
@@ -155,12 +158,26 @@ function civi_data_translate_civicrm_themes(&$themes) {
  * @throws \API_Exception
  */
 function civi_data_translate_civicrm_apiWrappers(&$wrappers, $apiRequest) {
+  $c = 1;
+  $d = method_exists($apiRequest, 'getLanguage');
   // Only implement for apiv4 & not in a circular way.
-  if ($apiRequest['entity'] === 'Strings' || $apiRequest['action'] !== 'get' || !$apiRequest instanceof AbstractAction) {
+  if ($apiRequest['entity'] === 'Strings'
+    || !$apiRequest instanceof AbstractAction
+    || !in_array($apiRequest['action'], ['get', 'create'])
+  ) {
     return;
   }
 
-  if ($apiRequest->getLanguage() !== Civi::settings()->get('lcMessages')) {
+  $apiLanguage = method_exists($apiRequest, 'getLanguage') ? $apiRequest->getLanguage() : ($apiRequest['language'] ?? NULL);
+  if (!$apiLanguage || $apiRequest->getLanguage() === Civi::settings()->get('lcMessages')) {
+    return;
+  }
+
+  if ($apiRequest['action'] === 'create') {
+    // Save these cleverly - once it actually reaches this point for create (@todo).
+    $strings = civi_data_translate_get_strings_to_set($apiRequest['entity']);
+  }
+  else {
     if (!isset(\Civi::$statics['cividatatranslate']['translate_fields'][$apiRequest['entity']][$apiRequest->getLanguage()])) {
       $fields = Strings::get()->addWhere('entity_table', '=', CRM_Core_DAO_AllCoreTables::getTableForEntityName($apiRequest['entity']))->setSelect(['entity_field', 'entity_id', 'string'])->execute();
       foreach ($fields as $field) {
@@ -173,6 +190,11 @@ function civi_data_translate_civicrm_apiWrappers(&$wrappers, $apiRequest) {
 
   }
 }
+
+function civi_data_translate_get_strings_to_set($entity) {
+  return ['msg_html', 'msg_text', 'subject'];
+}
+
 
 // --- Functions below this ship commented out. Uncomment as required. ---
 

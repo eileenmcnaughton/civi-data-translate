@@ -4,7 +4,7 @@ namespace Civi\Api4;
 /**
  * Strings entity.
  *
- * Provided by the FIXME extension.
+ * Provided by the CiviData translation extension.
  *
  * @package Civi\Api4
  */
