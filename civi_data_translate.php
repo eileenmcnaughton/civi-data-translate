@@ -168,8 +168,14 @@ function civi_data_translate_civicrm_apiWrappers(&$wrappers, $apiRequest) {
     return;
   }
 
-  $apiLanguage = method_exists($apiRequest, 'getLanguage') ? $apiRequest->getLanguage() : ($apiRequest['language'] ?? NULL);
-  if (!$apiLanguage || $apiRequest->getLanguage() === Civi::settings()->get('lcMessages')) {
+  try {
+    $apiLanguage = $apiRequest->getLanguage();
+    if (!$apiLanguage || $apiRequest->getLanguage() === Civi::settings()->get('lcMessages')) {
+      return;
+    }
+  }
+  catch (\API_Exception $e) {
+    // I think that language would always be a property based on the generic action, but in case...
     return;
   }
 
