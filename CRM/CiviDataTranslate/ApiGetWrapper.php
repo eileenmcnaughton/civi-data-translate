@@ -4,7 +4,7 @@ use CRM_CiviDataTranslate_ExtensionUtil as E;
 /**
  * Collection of upgrade steps.
  */
-class CRM_CiviDataTranslate_ApiWrapper {
+class CRM_CiviDataTranslate_ApiGetWrapper {
 
   protected $fields;
 

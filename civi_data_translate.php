@@ -101,6 +101,8 @@ function civi_data_translate_civicrm_managed(&$entities) {
  * Note: This hook only runs in CiviCRM 4.4+.
  *
  * @link https://docs.civicrm.org/dev/en/latest/hooks/hook_civicrm_caseTypes
+ *
+ * @throws \CRM_Core_Exception
  */
 function civi_data_translate_civicrm_caseTypes(&$caseTypes) {
   _civi_data_translate_civix_civicrm_caseTypes($caseTypes);
@@ -158,12 +160,10 @@ function civi_data_translate_civicrm_themes(&$themes) {
  * @throws \API_Exception
  */
 function civi_data_translate_civicrm_apiWrappers(&$wrappers, $apiRequest) {
-  $c = 1;
-  $d = method_exists($apiRequest, 'getLanguage');
   // Only implement for apiv4 & not in a circular way.
   if ($apiRequest['entity'] === 'Strings'
     || !$apiRequest instanceof AbstractAction
-    || !in_array($apiRequest['action'], ['get', 'create'])
+    || !in_array($apiRequest['action'], ['get', 'create', 'update', 'save'])
   ) {
     return;
   }
@@ -179,11 +179,15 @@ function civi_data_translate_civicrm_apiWrappers(&$wrappers, $apiRequest) {
     return;
   }
 
-  if ($apiRequest['action'] === 'create') {
-    // Save these cleverly - once it actually reaches this point for create (@todo).
-    $strings = civi_data_translate_get_strings_to_set($apiRequest['entity']);
+  if (in_array($apiRequest['action'], ['create', 'update', 'save'], TRUE)) {
+    $fieldsToTranslate = civi_data_translate_civicrm_fields_to_save_strings_for($apiRequest);
+    if (!empty($fieldsToTranslate)) {
+      $wrapper = civi_data_translate_get_api_wrapper_class($apiRequest['action'], $fieldsToTranslate);
+      $wrappers[] = $wrapper;
+    }
+
   }
-  else {
+  if ($apiRequest['action'] === 'get') {
     if (!isset(\Civi::$statics['cividatatranslate']['translate_fields'][$apiRequest['entity']][$apiRequest->getLanguage()])) {
       $fields = Strings::get()->addWhere('entity_table', '=', CRM_Core_DAO_AllCoreTables::getTableForEntityName($apiRequest['entity']))->setSelect(['entity_field', 'entity_id', 'string'])->execute();
       foreach ($fields as $field) {
@@ -191,14 +195,68 @@ function civi_data_translate_civicrm_apiWrappers(&$wrappers, $apiRequest) {
       }
     }
     if (!empty(\Civi::$statics['cividatatranslate']['translate_fields'][$apiRequest['entity']][$apiRequest->getLanguage()])) {
-      $wrappers[] = new CRM_CiviDataTranslate_ApiWrapper(\Civi::$statics['cividatatranslate']['translate_fields'][$apiRequest['entity']][$apiRequest->getLanguage()]);
+      $wrappers[] = new CRM_CiviDataTranslate_ApiGetWrapper(\Civi::$statics['cividatatranslate']['translate_fields'][$apiRequest['entity']][$apiRequest->getLanguage()]);
     }
 
   }
 }
 
+/**
+ * Get the wrapper class appropriate to the action.
+ *
+ * @param string $action
+ * @param array $fieldsToTranslate
+ *
+ * @return \CRM_CiviDataTranslate_ApiCreateWrapper|\CRM_CiviDataTranslate_ApiSaveWrapper|\CRM_CiviDataTranslate_ApiUpdateWrapper
+ */
+function civi_data_translate_get_api_wrapper_class(string $action, array $fieldsToTranslate) {
+  switch ($action) {
+    case 'create' :
+      return new CRM_CiviDataTranslate_ApiCreateWrapper($fieldsToTranslate);
+
+    case 'update':
+      return new CRM_CiviDataTranslate_ApiUpdateWrapper($fieldsToTranslate);
+
+    case 'save':
+      return new CRM_CiviDataTranslate_ApiSaveWrapper($fieldsToTranslate);
+  }
+
+}
+
+/**
+ * Get the fields that language specific strings should be saved for.
+ *
+ * @param AbstractAction $apiRequest
+ *
+ * @return array
+ */
+function civi_data_translate_civicrm_fields_to_save_strings_for($apiRequest) {
+  $fieldsToMap = array_fill_keys(civi_data_translate_get_strings_to_set($apiRequest['entity']), 1);
+  if ($apiRequest->getActionName() === 'save') {
+    return array_intersect_key(
+      $apiRequest->getDefaults(),
+      $fieldsToMap
+    );
+  }
+  return array_intersect_key(
+    $apiRequest->getValues(),
+    $fieldsToMap
+  );
+}
+
+/**
+ * Get the strings to translate per entity.
+ *
+ * So far this is just a few strings for one entity. In the future we need
+ * a more metadata approach.
+ *
+ * @param string $entity
+ *
+ * @return array
+ */
 function civi_data_translate_get_strings_to_set($entity) {
-  return ['msg_html', 'msg_text', 'subject'];
+  $strings = ['MessageTemplate' => ['msg_html', 'msg_text', 'subject']];
+  return $strings[$entity] ?? [];
 }
 
 

@@ -55,6 +55,36 @@ class CRM_Wrapper_Test extends \PHPUnit\Framework\TestCase implements HeadlessIn
   }
 
   /**
+   * Test updating an existing template with a string in another language.
+   *
+   * The updates to msg_html should be saved to the strings table but not the main table.
+   *
+   * @throws \API_Exception
+   * @throws \Civi\API\Exception\UnauthorizedException
+   */
+  public function testMessageTemplateUpdateWithWrapper() {
+    $template = MessageTemplate::create()->setValues(['msg_html' => 'blah'])->execute()->first();
+    // Update with no language set.
+    $template = MessageTemplate::update()->addWhere('id', '=', $template['id'])->setValues(['msg_html' => 'blah blah', 'is_reserved' => TRUE])->setLanguage('fr_FR')->execute()->first();
+    $template = MessageTemplate::get()->addWhere('id', '=', $template['id'])->setSelect(['*'])->setLanguage('fr_FR')->execute()->first();
+    $this->assertEquals('blah blah', $template['msg_html']);
+    $this->assertEquals(1, $template['is_reserved']);
+    // Check the default language still returns unchanged.
+    $template = MessageTemplate::get()->addWhere('id', '=', $template['id'])->setSelect(['*'])->execute()->first();
+    $this->assertEquals('blah', $template['msg_html']);
+    $this->assertEquals(1, $template['is_reserved']);
+    // Update the language string again.
+    $template = MessageTemplate::update()->addWhere('id', '=', $template['id'])->setValues(['msg_html' => 'new blah'])->setLanguage('fr_FR')->execute()->first();
+    $template = MessageTemplate::get()->addWhere('id', '=', $template['id'])->setSelect(['*'])->setLanguage('fr_FR')->execute()->first();
+    $this->assertEquals('new blah', $template['msg_html']);
+
+    // Now update using 'save'
+    $template = MessageTemplate::save()->setDefaults(['msg_html' => 'newer blah'])->setRecords([['id' => $template['id']]])->setLanguage('fr_FR')->execute()->first();
+    $template = MessageTemplate::get()->addWhere('id', '=', $template['id'])->setSelect(['*'])->setLanguage('fr_FR')->execute()->first();
+    $this->assertEquals('newer blah', $template['msg_html']);
+  }
+
+  /**
    * Test that our wrapper interprets locales.
    *
    * @throws \API_Exception
