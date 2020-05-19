@@ -21,14 +21,17 @@ use Civi\Token\TokenProcessor;
  * @method string getMessageHtml() Get Message Html
  * @method $this setMessageText(string $messageHtml) Set Message Text
  * @method string getMessageText() Get Message Text
- * @method array getMessages() Get array of adhoc strings to parse.
- * @method $this setMessages(array $stringToParse) Set array of adhoc strings to parse.
+ * method array getMessages() Get array of adhoc strings to parse. See explanation in getStringsToParse for why this is currently commented out.See explanation in getStringsToParse for why this is currently commented out.
+ * method $this setMessages(array $stringToParse) Set array of adhoc strings to parse. See explanation in getStringsToParse for why this is currently commented out.
  * @method $this setEntity(string $entity) Set entity.
  * @method string getEntity() Get entity.
  * @method $this setEntityIDs(array $entityIDs) Set entity IDs
  * @method array getEntityIDs() Get entity IDs
+ * @method $this setWhere(array $whereClauses) Set where clauses.
  * @method $this setLanguage(string $entityIDs) Set language (e.g en_NZ).
  * @method string getLanguage() Get language (e.g en_NZ)
+ * @method $this setLimit(int $limit) Set Limit
+ * @method int getLimit() Get Limit
  */
 class Render extends AbstractAction {
 
@@ -37,12 +40,16 @@ class Render extends AbstractAction {
    *
    * It is necessary to pass this or at least one string.
    *
+   * @required
+   *
    * @var string
    */
   protected $workflowName;
 
   /**
    * Ad hoc html strings to parse.
+   *
+   * See explanation in getStringsToParse for why this is currently commented out.
    *
    * Array of adhoc strings arrays to pass e.g
    *  [
@@ -53,8 +60,8 @@ class Render extends AbstractAction {
    * If no provided the key will default to 'string' and the format will default to 'text'
    *
    * @var array
-   */
   protected $messages = [];
+   */
 
   /**
    * String to be returned as the subject.
@@ -83,12 +90,13 @@ class Render extends AbstractAction {
    * This is required if tokens related to the entity are to be parsed and the entity cannot
    * be derived from the message_template.
    *
-   * Only Activity is currently supported in this initial implementation.
+   * Entities currently limited as it bears thinking about how we best map entities to the workflow templates.
    *
    * @var string
    *
-   * @options Activity
+   * @required
    *
+   * @options Contribution,ContributionRecur
    */
   protected $entity;
 
@@ -102,18 +110,42 @@ class Render extends AbstractAction {
   protected $entityIDs = [];
 
   /**
+   * Where clause to pass to entity retrieval.
+   *
+   * Set this, or set entityIDs. EntityIDs will be converted to a where clause.
+   *
+   * @var array
+   */
+  protected $where;
+
+  /**
    * Language to use.
    *
    * @var string
    */
   protected $language;
+
+  /**
+   * Limit of entities to process.
+   *
+   * @var int
+   */
+  protected $limit;
+
   /**
    * @inheritDoc
+   *
+   * @param \Civi\Api4\Generic\Result $result
+   *
+   * @throws \API_Exception
+   * @throws \Civi\API\Exception\NotImplementedException
    */
   public function _run(Result $result) {
     $this->loadMessageTemplate();
     $tokenProcessor = new TokenProcessor(Civi::dispatcher(), [
       'controller' => __CLASS__,
+      // Permissions implications in not-false. Also a preference to simply do smarty parsing after
+      // in a wrapper function when we go there.
       'smarty' => FALSE,
       'schema' => [$this->getEntity() => $this->getEntityKey()],
     ]);
@@ -122,7 +154,7 @@ class Render extends AbstractAction {
     // Doing a get here allows us to do permission checking which is not obviously present in the token processor.
     // It also helps with the fact some entities don't have processors. Note that it's not ideal to do select * but...
     // otherwise we need to know the tokens.
-    $entities = \civicrm_api4($this->getEntity(), 'get', ['where' => [['id', 'IN', $this->entityIDs]], 'select' => ['*'], 'checkPermissions' => $this->checkPermissions]);
+    $entities = \civicrm_api4($this->getEntity(), 'get', ['where' => $this->getWhere(), 'select' => ['*'], 'checkPermissions' => $this->checkPermissions, 'limit' => $this->getLimit()]);
 
     foreach ($entities as $entity) {
       foreach ($this->getStringsToParse() as $fieldKey => $textField) {
@@ -130,6 +162,8 @@ class Render extends AbstractAction {
           continue;
         }
         if (!empty($entity['contact_id'])) {
+          // @todo - we have checked permissions on the entity values we pass in to our processor but the
+          // contact token processor also does swapsies. Managing risk for now by limiting to workflow templates.
           $tokenProcessor->addRow()->context(array_merge(['contactId' => $entity['contact_id'], 'entity' => $this->getEntity()], $entity));
         }
         else {
@@ -144,6 +178,18 @@ class Render extends AbstractAction {
         }
       }
     }
+  }
+
+  /**
+   * Get the relevant where clause.
+   *
+   * @return array
+   */
+  public function getWhere(): array {
+    if (!empty($this->entityIDs)) {
+      $this->where[] = ['id', 'IN', $this->entityIDs];
+    }
+    return $this->where;
   }
 
   /**
@@ -172,11 +218,18 @@ class Render extends AbstractAction {
       'msg_subject' => ['string' => $this->getMessageSubject(), 'format' => 'text/plain', 'key' => 'msg_subject'],
       'msg_text' => ['string' => $this->getMessageText(), 'format' => 'text/plain', 'key' => 'msg_text'],
     ];
+    /*
+     The intention was to also allow ad hoc strings. However, some security need to be thought through.
+     Although we do a security check on the ability to access the main entity it is not clear that
+     there is a permission check on contact fields associated with a contact, so this could be a bypass
+     to get custom fields otherwise security-restricted.
+     Hence we limit to message templates, the  creation of which implies some security access.
     foreach ($this->getMessages() as $message) {
       $message['key']  = $message['key'] ?? 'string';
       $message['format'] = $message['format'] ?? 'text/plain';
       $textFields[$message['key']] = $message;
     }
+    */
     return $textFields;
   }
 
@@ -190,7 +243,7 @@ class Render extends AbstractAction {
   }
 
   /**
-   *
+   * Load the relevant message template.
    */
   protected function loadMessageTemplate() {
     if ($this->getWorkflowName()) {

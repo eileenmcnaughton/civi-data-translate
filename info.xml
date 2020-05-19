@@ -18,7 +18,7 @@
   <version>1.0</version>
   <develStage>stable</develStage>
   <compatibility>
-    <ver>5.25</ver>
+    <ver>5.26</ver>
   </compatibility>
   <comments>Module for supporting civistrings.</comments>
   <classloader>

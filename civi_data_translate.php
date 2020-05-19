@@ -162,6 +162,7 @@ function civi_data_translate_civicrm_themes(&$themes) {
 function civi_data_translate_civicrm_apiWrappers(&$wrappers, $apiRequest) {
   // Only implement for apiv4 & not in a circular way.
   if ($apiRequest['entity'] === 'Strings'
+    || $apiRequest['entity'] === 'Entity'
     || !$apiRequest instanceof AbstractAction
     || !in_array($apiRequest['action'], ['get', 'create', 'update', 'save'])
   ) {

@@ -12,6 +12,8 @@
 
 namespace Civi\Api4;
 
+use Civi\Api4\Generic\BasicGetFieldsAction;
+
 /**
  * MsgTemplate entity.
  *
@@ -19,7 +21,7 @@ namespace Civi\Api4;
  *
  * @package Civi\Api4
  */
-class Message {
+class Message extends Generic\AbstractEntity {
 
   /**
    * @return \Civi\Api4\Action\Message\Render
@@ -28,6 +30,27 @@ class Message {
    */
   public static function render() {
     return new Action\Message\Render(__CLASS__, __FUNCTION__);
+  }
+
+  /**
+   * Get permissions.
+   *
+   * It may be that we don't need a permission check on this api at all at there is a check on the entity
+   * retrieved.
+   *
+   * @return array
+   */
+  public static function permissions():array {
+    return ['render' => 'access CiviCRM'];
+  }
+
+  /**
+   * @return \Civi\Api4\Generic\BasicGetFieldsAction
+   */
+  public static function getFields() {
+    return new BasicGetFieldsAction(__CLASS__, __FUNCTION__, function() {
+      return [];
+    });
   }
 
 }
