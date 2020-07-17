@@ -12,8 +12,6 @@
 
 namespace Civi\Api4;
 
-use Civi\Api4\Generic\BasicGetFieldsAction;
-
 /**
  * MsgTemplate entity.
  *
@@ -24,12 +22,15 @@ use Civi\Api4\Generic\BasicGetFieldsAction;
 class Message extends Generic\AbstractEntity {
 
   /**
-   * @return \Civi\Api4\Action\Message\Render
+   * @return Action\Message\Render
+   *
+   * @param bool $checkPermissions
    *
    * @throws \API_Exception
    */
-  public static function render() {
-    return new Action\Message\Render(__CLASS__, __FUNCTION__);
+  public static function render($checkPermissions = TRUE) {
+    return (new Action\Message\Render(__CLASS__, __FUNCTION__))
+      ->setCheckPermissions($checkPermissions);
   }
 
   /**
@@ -45,12 +46,13 @@ class Message extends Generic\AbstractEntity {
   }
 
   /**
-   * @return \Civi\Api4\Generic\BasicGetFieldsAction
+   * @param bool $checkPermissions
+   * @return Generic\BasicGetFieldsAction
    */
-  public static function getFields() {
-    return new BasicGetFieldsAction(__CLASS__, __FUNCTION__, function() {
+  public static function getFields($checkPermissions = TRUE) {
+    return (new Generic\BasicGetFieldsAction(__CLASS__, __FUNCTION__, function() {
       return [];
-    });
+    }))->setCheckPermissions($checkPermissions);
   }
 
 }
