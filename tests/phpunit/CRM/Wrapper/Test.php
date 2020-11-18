@@ -42,15 +42,23 @@ class CRM_Wrapper_Test extends \PHPUnit\Framework\TestCase implements HeadlessIn
   }
 
   /**
+   * Set up - ensure civicrm is initialized if calling tests outside cv context.
+   */
+  public function setUp() {
+    civicrm_initialize();
+    parent::setUp();
+  }
+
+  /**
    * Test that our wrapper interprets locales.
    *
    * @throws \API_Exception
    * @throws \Civi\API\Exception\UnauthorizedException
    */
   public function testMessageTemplateWithWrapper() {
-    $template = MessageTemplate::create()->setValues(['msg_html' => 'blah'])->execute()->first();
-    Strings::create()->setValues(['entity_table' => 'civicrm_msg_template', 'entity_field' => 'msg_html','entity_id' => $template['id'], 'string' => 'not blah', 'language' => 'fr_FR'])->execute();
-    $template = MessageTemplate::get()->addWhere('id', '=', $template['id'])->setSelect(['*'])->setLanguage('fr_FR')->execute()->first();
+    $template = MessageTemplate::create()->setValues(['msg_html' => 'blah'])->setCheckPermissions(FALSE)->execute()->first();
+    Strings::create()->setCheckPermissions(FALSE)->setValues(['entity_table' => 'civicrm_msg_template', 'entity_field' => 'msg_html','entity_id' => $template['id'], 'string' => 'not blah', 'language' => 'fr_FR'])->execute();
+    $template = MessageTemplate::get()->setCheckPermissions(FALSE)->addWhere('id', '=', $template['id'])->setSelect(['*'])->setLanguage('fr_FR')->execute()->first();
     $this->assertEquals('not blah', $template['msg_html']);
   }
 
@@ -63,24 +71,24 @@ class CRM_Wrapper_Test extends \PHPUnit\Framework\TestCase implements HeadlessIn
    * @throws \Civi\API\Exception\UnauthorizedException
    */
   public function testMessageTemplateUpdateWithWrapper() {
-    $template = MessageTemplate::create()->setValues(['msg_html' => 'blah'])->execute()->first();
+    $template = MessageTemplate::create()->setCheckPermissions(FALSE)->setValues(['msg_html' => 'blah'])->execute()->first();
     // Update with no language set.
-    $template = MessageTemplate::update()->addWhere('id', '=', $template['id'])->setValues(['msg_html' => 'blah blah', 'is_reserved' => TRUE])->setLanguage('fr_FR')->execute()->first();
-    $template = MessageTemplate::get()->addWhere('id', '=', $template['id'])->setSelect(['*'])->setLanguage('fr_FR')->execute()->first();
+    $template = MessageTemplate::update()->setCheckPermissions(FALSE)->addWhere('id', '=', $template['id'])->setValues(['msg_html' => 'blah blah', 'is_reserved' => TRUE])->setLanguage('fr_FR')->execute()->first();
+    $template = MessageTemplate::get()->setCheckPermissions(FALSE)->addWhere('id', '=', $template['id'])->setSelect(['*'])->setLanguage('fr_FR')->execute()->first();
     $this->assertEquals('blah blah', $template['msg_html']);
     $this->assertEquals(1, $template['is_reserved']);
     // Check the default language still returns unchanged.
-    $template = MessageTemplate::get()->addWhere('id', '=', $template['id'])->setSelect(['*'])->execute()->first();
+    $template = MessageTemplate::get()->setCheckPermissions(FALSE)->addWhere('id', '=', $template['id'])->setSelect(['*'])->execute()->first();
     $this->assertEquals('blah', $template['msg_html']);
     $this->assertEquals(1, $template['is_reserved']);
     // Update the language string again.
-    $template = MessageTemplate::update()->addWhere('id', '=', $template['id'])->setValues(['msg_html' => 'new blah'])->setLanguage('fr_FR')->execute()->first();
-    $template = MessageTemplate::get()->addWhere('id', '=', $template['id'])->setSelect(['*'])->setLanguage('fr_FR')->execute()->first();
+    $template = MessageTemplate::update()->setCheckPermissions(FALSE)->addWhere('id', '=', $template['id'])->setValues(['msg_html' => 'new blah'])->setLanguage('fr_FR')->execute()->first();
+    $template = MessageTemplate::get()->setCheckPermissions(FALSE)->addWhere('id', '=', $template['id'])->setSelect(['*'])->setLanguage('fr_FR')->execute()->first();
     $this->assertEquals('new blah', $template['msg_html']);
 
     // Now update using 'save'
-    $template = MessageTemplate::save()->setDefaults(['msg_html' => 'newer blah'])->setRecords([['id' => $template['id']]])->setLanguage('fr_FR')->execute()->first();
-    $template = MessageTemplate::get()->addWhere('id', '=', $template['id'])->setSelect(['*'])->setLanguage('fr_FR')->execute()->first();
+    $template = MessageTemplate::save()->setCheckPermissions(FALSE)->setDefaults(['msg_html' => 'newer blah'])->setRecords([['id' => $template['id']]])->setLanguage('fr_FR')->execute()->first();
+    $template = MessageTemplate::get()->setCheckPermissions(FALSE)->addWhere('id', '=', $template['id'])->setSelect(['*'])->setLanguage('fr_FR')->execute()->first();
     $this->assertEquals('newer blah', $template['msg_html']);
   }
 
@@ -110,7 +118,7 @@ class CRM_Wrapper_Test extends \PHPUnit\Framework\TestCase implements HeadlessIn
    * @throws \Civi\API\Exception\UnauthorizedException
    */
   public function testRenderCustomTemplate() {
-    MessageTemplate::create()->setValues([
+    MessageTemplate::create()->setCheckPermissions(FALSE)->setValues([
       'workflow_name' => 'my_custom_tpl',
       'msg_text' => 'Hi {contact.first_name}. Your email is {contact.email} and your recurring amount is {contributionRecur.amount}',
       'is_default' => TRUE,
@@ -134,13 +142,13 @@ class CRM_Wrapper_Test extends \PHPUnit\Framework\TestCase implements HeadlessIn
    * @throws \Civi\API\Exception\UnauthorizedException
    */
   protected function setupRecurringContribution():array {
-    $contact = Contact::create()->setValues(['first_name' => 'Donald', 'last_name' => 'Duck'])->addChain('email_0', \Civi\Api4\Email::create()
+    $contact = Contact::create()->setCheckPermissions(FALSE)->setValues(['first_name' => 'Donald', 'last_name' => 'Duck'])->addChain('email_0', \Civi\Api4\Email::create()
       ->addValue('contact_id', '$id')
       ->addValue('email', 'donald@duck.com')
     )->execute()->first();
     return ContributionRecur::create()
       ->setCheckPermissions(FALSE)
-      ->setValues(['contact_id' => $contact['id'], 'amount' => 5, 'start_date' => 'now', 'frequency_interval' => 1])
+      ->setValues(['contact_id' => $contact['id'], 'amount' => 5, 'start_date' => 'now', 'frequency_interval' => 1, 'create_date' => 'now'])
       ->execute()->first();
   }
 

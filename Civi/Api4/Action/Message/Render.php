@@ -148,6 +148,7 @@ class Render extends AbstractAction {
       // in a wrapper function when we go there.
       'smarty' => FALSE,
       'schema' => [$this->getEntity() => $this->getEntityKey()],
+      'language' => $this->getLanguage(),
     ]);
 
     // Use wrapper as we don't know which entity.

@@ -29,6 +29,25 @@ class CRM_CiviDataTranslate_Tokens {
           /** @var Civi\Token\TokenRow $row */
           $row->tokens($tokenEntity, $token, $row->context[$token]);
         }
+        elseif (isset($row->context[str_replace('__format_money', '', $token)])) {
+          /** @var Civi\Token\TokenRow $row */
+          // @todo - calling our Twig class is quick & dirty but it's not a good fix in that it's too entangled
+          // Ref https://lab.civicrm.org/dev/translation/-/issues/48 for getting a library into civi
+          $value = $row->context[str_replace('__format_money', '', $token)];
+          $string = TwigLocalization::l10n_currency($row->context['currency'] . ' ' . $value, $row->context['language']);
+          $row->tokens($tokenEntity, $token, $string);
+        }
+      }
+      if (isset($tokens['now'])) {
+        // e.g {now.MMMM} - this formats now in a localised way using format http://userguide.icu-project.org/formatparse/datetime
+        // @todo consider if that is the right sort of format to use - elsewhere in Civi we use strtotime
+        // formats. Also note that ideally we would add these to the front-end user's experience & give them
+        // labels so it would matter less.
+        $dateFormatter = new \IntlDateFormatter($row->context['language'], NULL, NULL);
+        foreach ($tokens['now'] as $token) {
+          $dateFormatter->setPattern($token);
+          $row->tokens('now', $token, $dateFormatter->format(new \DateTime()));
+        }
       }
     }
   }
